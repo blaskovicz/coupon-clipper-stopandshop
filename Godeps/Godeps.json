@@ -7,6 +7,14 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/blaskovicz/go-stopandshop",
+			"Rev": "3df9df5216d296ccee9a3a7961003d589ab36904"
+		},
+		{
+			"ImportPath": "github.com/blaskovicz/go-stopandshop/models",
+			"Rev": "3df9df5216d296ccee9a3a7961003d589ab36904"
+		},
+		{
 			"ImportPath": "github.com/julienschmidt/httprouter",
 			"Comment": "v1.1-51-g975b5c4",
 			"Rev": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e"
