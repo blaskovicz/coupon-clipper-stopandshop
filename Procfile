@@ -1,0 +1,1 @@
+web: coupon-clipper-web

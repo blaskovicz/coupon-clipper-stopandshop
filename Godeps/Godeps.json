@@ -1,0 +1,32 @@
+{
+	"ImportPath": "github.com/blaskovicz/coupon-clipper-stopandshop",
+	"GoVersion": "go1.8",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Comment": "v1.1-51-g975b5c4",
+			"Rev": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e"
+		},
+		{
+			"ImportPath": "github.com/sirupsen/logrus",
+			"Comment": "v1.0.3-11-g89742ae",
+			"Rev": "89742aefa4b206dcf400792f3bd35b542998eb3b"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/ssh/terminal",
+			"Rev": "9ba3862cf6a5452ae579de98f9364dd2e544844c"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "a5054c7c1385fd50d9394475365355a87a7873ec"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/windows",
+			"Rev": "a5054c7c1385fd50d9394475365355a87a7873ec"
+		}
+	]
+}
