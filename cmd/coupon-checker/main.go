@@ -63,15 +63,17 @@ func main() {
 		for _, coupon := range coupons {
 			coupon.LegalText = "" // I don't care about searching this field
 			couponRaw := strings.ToLower(fmt.Sprintf("%#v", coupon))
-			// make sure it's not part of another word
-			if freebieRe.FindString(couponRaw) == "" {
-				continue
-			} else if strings.Contains(couponRaw, "buy") && strings.Contains(couponRaw, "get one") {
-				// ignore buy N get one
-				continue
-			} else if strings.Contains(strings.ToLower(coupon.Title), "save") {
-				// eg "save $2.00"
-				continue
+			if os.Getenv("EMAIL_ALL_COUPONS") != "true" {
+				if freebieRe.FindString(couponRaw) == "" {
+					// make sure it's not part of another word
+					continue
+				} else if strings.Contains(couponRaw, "buy") && strings.Contains(couponRaw, "get one") {
+					// ignore buy N get one
+					continue
+				} else if strings.Contains(strings.ToLower(coupon.Title), "save") {
+					// eg "save $2.00"
+					continue
+				}
 			}
 
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponRaw}).Info()
@@ -100,10 +102,13 @@ func emailCoupon(profile models.Profile, coupon models.Coupon) error {
 					<p style='font-weight:bold'>%s <small>[Valid %s to %s]</small></p>
 					<p style='color:gray'>%s</p>
 				</div>
+				<div>
+					<a target='_blank' href='https://coupon-clipper-stopandshop.herokuapp.com/coupons/%s/clip' style='border: 1px dotted gray'>Clip</a>
+				</div>
 			</div>
 		</body>
 	</html>
-`, coupon.Name, coupon.URL, coupon.Title, coupon.StartDate, coupon.EndDate, coupon.Description))
+`, coupon.Name, coupon.URL, coupon.Title, coupon.StartDate, coupon.EndDate, coupon.Description, coupon.ID))
 	m := mail.NewV3MailInit(from, subject, to, content)
 	// TODO add link to load to card
 
