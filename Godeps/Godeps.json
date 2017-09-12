@@ -15,9 +15,29 @@
 			"Rev": "4f3a384a6c77ce1b84d18c1949a3fc440c387e07"
 		},
 		{
+			"ImportPath": "github.com/joho/godotenv",
+			"Comment": "v1.1-23-gc9360df",
+			"Rev": "c9360df4d16dc0e391ea2f28da2d31a9ede2e26f"
+		},
+		{
 			"ImportPath": "github.com/julienschmidt/httprouter",
 			"Comment": "v1.1-51-g975b5c4",
 			"Rev": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e"
+		},
+		{
+			"ImportPath": "github.com/sendgrid/rest",
+			"Comment": "v2.4.0-1-g14de1ac",
+			"Rev": "14de1ac72d9ae5c3c0d7c02164c52ebd3b951a4e"
+		},
+		{
+			"ImportPath": "github.com/sendgrid/sendgrid-go",
+			"Comment": "v3.4.1-2-g36381c8",
+			"Rev": "36381c8cda905f8b20b12db18d5b5b0b015d9d43"
+		},
+		{
+			"ImportPath": "github.com/sendgrid/sendgrid-go/helpers/mail",
+			"Comment": "v3.4.1-2-g36381c8",
+			"Rev": "36381c8cda905f8b20b12db18d5b5b0b015d9d43"
 		},
 		{
 			"ImportPath": "github.com/sirupsen/logrus",
