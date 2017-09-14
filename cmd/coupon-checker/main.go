@@ -30,7 +30,6 @@ func getRedis() (*redis.Client, error) {
 	c := redis.NewClient(&redis.Options{
 		Addr:     u.Host,
 		Password: password,
-		DB:       3,
 	})
 	if _, err = c.Ping().Result(); err != nil {
 		return nil, err
