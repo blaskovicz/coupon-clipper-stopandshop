@@ -15,6 +15,36 @@
 			"Rev": "4f3a384a6c77ce1b84d18c1949a3fc440c387e07"
 		},
 		{
+			"ImportPath": "github.com/go-redis/redis",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/consistenthash",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/hashtag",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/pool",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
+			"ImportPath": "github.com/go-redis/redis/internal/proto",
+			"Comment": "v6.6.1",
+			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
+		},
+		{
 			"ImportPath": "github.com/joho/godotenv",
 			"Comment": "v1.1-23-gc9360df",
 			"Rev": "c9360df4d16dc0e391ea2f28da2d31a9ede2e26f"
