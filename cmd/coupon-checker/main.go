@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -10,11 +11,32 @@ import (
 
 	stopandshop "github.com/blaskovicz/go-stopandshop"
 	"github.com/blaskovicz/go-stopandshop/models"
+	"github.com/go-redis/redis"
 	"github.com/joho/godotenv"
 	sendgrid "github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/sirupsen/logrus"
 )
+
+func getRedis() (*redis.Client, error) {
+	u, err := url.Parse(os.Getenv("REDIS_URL"))
+	if err != nil {
+		return nil, err
+	}
+	var password string
+	if u.User != nil {
+		password, _ = u.User.Password()
+	}
+	c := redis.NewClient(&redis.Options{
+		Addr:     u.Host,
+		Password: password,
+		DB:       3,
+	})
+	if _, err = c.Ping().Result(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
 
 func getTicker() (<-chan time.Time, error) {
 	numSeconds := 60 // one minute ticks
@@ -40,6 +62,12 @@ func main() {
 	}
 	for range ticker {
 		logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "loop-start"}).Info()
+		// TODO connection pool
+		rClient, err := getRedis()
+		if err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "connect-redis"}).Error(err)
+			continue
+		}
 		// check for coupons
 		client := stopandshop.New()
 		if err = client.Login(os.Getenv("USERNAME"), os.Getenv("PASSWORD")); err != nil {
@@ -76,11 +104,26 @@ func main() {
 				}
 			}
 
+			key := fmt.Sprintf("sent_coupons:%s", profile.ID)
+			sentCoupon, err := rClient.SIsMember(key, coupon.ID).Result()
+			if err != nil {
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sismember", "coupon": couponRaw}).Error(err)
+				continue
+			} else if sentCoupon {
+				continue // don't re-send coupon
+			}
+
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponRaw}).Info()
 			if err = emailCoupon(*profile, coupon); err != nil {
 				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponRaw, "to": profile.Login}).Error(err)
 				continue
 			}
+			if err := rClient.SAdd(key, coupon.ID).Err(); err != nil {
+				// failed to persist the coupon in our sent items list, will re-email next run
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sadd", "coupon": couponRaw, "to": profile.Login}).Error(err)
+				continue
+			}
+			// TODO reap old coupon records that have passed coupon.expirationDate
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon-complete", "coupon": couponRaw, "to": profile.Login}).Info()
 		}
 	}
