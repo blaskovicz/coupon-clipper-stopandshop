@@ -13,11 +13,11 @@
 		},
 		{
 			"ImportPath": "github.com/blaskovicz/go-stopandshop",
-			"Rev": "4f3a384a6c77ce1b84d18c1949a3fc440c387e07"
+			"Rev": "7fded8e906b7bc433d97fa2b4b1aa3725df469f3"
 		},
 		{
 			"ImportPath": "github.com/blaskovicz/go-stopandshop/models",
-			"Rev": "4f3a384a6c77ce1b84d18c1949a3fc440c387e07"
+			"Rev": "7fded8e906b7bc433d97fa2b4b1aa3725df469f3"
 		},
 		{
 			"ImportPath": "github.com/go-redis/redis",

@@ -1,0 +1,30 @@
+{{template "header" .}}
+{{ if .profile }}
+  <div class="row">
+    <h3 class="col-12">Welcome, {{.profile.FirstName}}! <a href="/auth/logout">Logout?</a></h3>
+  </div>
+{{ end }}
+{{if .coupons }}
+  <div class="row">
+    <h3 class="col-12">Your Coupons</h3>
+  </div>
+{{ range .coupons }}
+  <div class="row">
+    <div class="col-12" style="border-bottom: 1px solid #d2c8c8; {{ if .Loaded }}background-color: #9dcbef {{ end }}">
+			<h4>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h4>
+			<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
+			<div style='display:inline-block; overflow: auto; width:350px; vertical-align: middle'>
+				<p style='color:gray'>{{.Description}}</p>
+			</div>
+			<div style='margin-top: 5px'>
+        {{ if not .Loaded }}
+				<a href='/coupons/{{.ID}}/clip'>Clip</a>
+        {{ else }}
+        <i>Already loaded to card.</i>
+        {{ end }}
+			</div>
+    </div>
+  </div>
+{{ end }}
+{{ end }}
+{{template "footer" .}}

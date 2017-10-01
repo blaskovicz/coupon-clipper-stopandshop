@@ -1,0 +1,22 @@
+{{ template "header" .}}
+<div class="row">
+  <div class="col-12">
+    <form method="POST" action="/auth/login" accept-charset="UTF-8">
+      <div class="form-group {{ if .usernameE }} has-danger {{ end }}">
+        <label for="username" class="bold">Stop and Shop Username</label>
+        <input class="form-control" type="text" name="username" id="username" value="{{.username}}">
+        {{ if .usernameE }}<div class="form-control-feedback">{{.usernameE}}</div>{{ end }}
+        <small class="form-text text-muted">Your username for logging in to <a rel="noopener noreferrer" target="_blank" href="https://stopandshop.com">Stop&Shop</a> (eg: <code>someone@somedomain.com</code>).</small>
+      </div>
+      <div class="form-group {{ if .usernameE }} has-danger {{ end }}">
+        <label for="password" class="bold">Stop and Shop Password</label>
+        <input class="form-control" type="password" name="password" id="password">
+        {{ if .passwordE }}<div class="form-control-feedback">{{.passwordE}}</div>{{ end }}
+        <small class="form-text text-muted">Your password for logging in to <a rel="noopener noreferrer" target="_blank" href="https://stopandshop.com">Stop&Shop</a>.</small>
+      </div>
+      {{ .csrfField }}
+      <input type="submit" value="Log In" class="btn btn-primary">
+    </form>
+  </div>
+</div>
+{{template "footer" .}}

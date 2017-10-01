@@ -1,0 +1,14 @@
+<html>
+	<body>
+		<div style='border: 1px solid #000; width: 440px; padding: 5px'>
+			<h3>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h3>
+			<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
+			<div style='display:inline-block; overflow: auto; width:350px; vertical-align:middle'>
+				<p style='color:gray'>{{.Description}}</p>
+			</div>
+			<div style='margin-top: 5px'>
+				<a target='_blank' href='https://coupon-clipper-stopandshop.herokuapp.com/coupons/{{.ID}}/clip'>Clip</a>
+			</div>
+		</div>
+	</body>
+</html>

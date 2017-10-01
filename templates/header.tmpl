@@ -1,0 +1,33 @@
+{{define "header"}}
+<html>
+  <head>
+    <title>Coupon Clipper: Stop and Shop</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+    <style>label.bold{font-weight:bold}</style>
+  </head>
+  <body>
+    <div class="jumbotron">
+      <h1><a href="/" style="color:inherit">Coupon Clipper: Stop and Shop</a></h1>
+      <p class="lead">Clip and view coupons on <a href="https://stopandshop.com" target="_blank" rel="noopener noreferrer">Stop and Shop</a></p>
+      <hr class="my-1">
+    </div>
+    <div class="container">
+      {{ if .flashError }}
+        <div class="row">
+          <div class="alert alert-danger col-12">
+            {{.flashError}}
+          </div>
+        </div>
+      {{ end }}
+      {{ if .flashSuccess }}
+        <div class="row">
+          <div class="alert alert-success col-12">
+            {{.flashSuccess}}
+          </div>
+        </div>
+      {{ end }}
+    {{/*content then footer*/}}
+{{end}}

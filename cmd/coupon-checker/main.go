@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html"
-	"html/template"
 	"net/url"
 	"regexp"
 	"strings"
@@ -118,29 +117,12 @@ func main() {
 	}
 }
 
-var t = template.Must(template.New("email").Parse(`
-	<html>
-		<body>
-			<div style='border: 1px solid #000; width: 440px; padding: 5px'>
-				<h3>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h3>
-				<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
-				<div style='display:inline-block; overflow: auto; width:350px'>
-					<p style='color:gray'>{{.Description}}</p>
-				</div>
-				<div style='margin-top: 5px'>
-					<a target='_blank' href='https://coupon-clipper-stopandshop.herokuapp.com/coupons/{{.ID}}/clip'>Clip</a>
-				</div>
-			</div>
-		</body>
-	</html>
-`))
-
 func emailCoupon(cfg *common.Config, profile models.Profile, coupon models.Coupon) error {
 	from := mail.NewEmail("Coupon Clipper StopAndShop", "noreply@coupon-clipper-stopandshop.herokuapp.com")
 	subject := fmt.Sprintf("[NEW] %s: %s", html.EscapeString(coupon.Name), html.EscapeString(coupon.Title))
 	to := mail.NewEmail(profile.FirstName, profile.Login)
 	var buff bytes.Buffer
-	if err := t.Execute(&buff, coupon); err != nil {
+	if err := common.Templates.ExecuteTemplate(&buff, "clip-coupon.tmpl", coupon); err != nil {
 		return fmt.Errorf("Failed to generate email: %s", err)
 	}
 	content := mail.NewContent("text/html", buff.String())

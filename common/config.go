@@ -18,6 +18,7 @@ type Config struct {
 	RedisURL            string `env:"REDIS_URL" required:"true"`
 	TickIntervalSeconds int    `env:"TICK_INTERVAL_SECONDS" default:"360"`
 	Port                int    `env:"PORT" default:"3000"`
+	SessionSecret       string `env:"SESSION_SECRET" required:"true"`
 }
 
 func LoadConfig() (*Config, error) {
