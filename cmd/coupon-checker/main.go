@@ -3,23 +3,21 @@ package main
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/blaskovicz/coupon-clipper-stopandshop/common"
 	stopandshop "github.com/blaskovicz/go-stopandshop"
 	"github.com/blaskovicz/go-stopandshop/models"
 	"github.com/go-redis/redis"
-	"github.com/joho/godotenv"
 	sendgrid "github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/sirupsen/logrus"
 )
 
-func getRedis() (*redis.Client, error) {
-	u, err := url.Parse(os.Getenv("REDIS_URL"))
+func getRedis(cfg *common.Config) (*redis.Client, error) {
+	u, err := url.Parse(cfg.RedisURL)
 	if err != nil {
 		return nil, err
 	}
@@ -37,39 +35,35 @@ func getRedis() (*redis.Client, error) {
 	return c, nil
 }
 
-func getTicker() (<-chan time.Time, error) {
-	numSeconds := 60 // one minute ticks
-	if numSecondsRaw := os.Getenv("TICK_INTERVAL_SECONDS"); numSecondsRaw != "" {
-		var err error
-		numSeconds, err = strconv.Atoi(numSecondsRaw)
-		if err != nil {
-			return nil, fmt.Errorf("invalid tick interval: %s", err)
-		} else if numSeconds < 5 {
-			return nil, fmt.Errorf("invalid tick interval: must be at least 5 seconds")
-		}
+func getTicker(cfg *common.Config) (<-chan time.Time, error) {
+	if cfg.TickIntervalSeconds < 5 {
+		return nil, fmt.Errorf("invalid tick interval: must be at least 5 seconds")
 	}
-	return time.Tick(time.Second * time.Duration(numSeconds)), nil
+	return time.Tick(time.Second * time.Duration(cfg.TickIntervalSeconds)), nil
 }
 
 var freebieRe = regexp.MustCompile("\\bfree\\b")
 
 func main() {
-	godotenv.Load()
-	ticker, err := getTicker()
+	cfg, err := common.LoadConfig()
 	if err != nil {
-		panic(err)
+		logrus.Fatal(err)
+	}
+	ticker, err := getTicker(cfg)
+	if err != nil {
+		logrus.Fatal(err)
 	}
 	for range ticker {
 		logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "loop-start"}).Info()
 		// TODO connection pool
-		rClient, err := getRedis()
+		rClient, err := getRedis(cfg)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "connect-redis"}).Error(err)
 			continue
 		}
 		// check for coupons
 		client := stopandshop.New()
-		if err = client.Login(os.Getenv("USERNAME"), os.Getenv("PASSWORD")); err != nil {
+		if err = client.Login(cfg.Username, cfg.Password); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "login"}).Error(err)
 			continue
 		}
@@ -90,7 +84,7 @@ func main() {
 		for _, coupon := range coupons {
 			coupon.LegalText = "" // I don't care about searching this field
 			couponRaw := strings.ToLower(fmt.Sprintf("%#v", coupon))
-			if os.Getenv("EMAIL_ALL_COUPONS") != "true" {
+			if !cfg.EmailAllCoupons {
 				if freebieRe.FindString(couponRaw) == "" {
 					// make sure it's not part of another word
 					continue
@@ -113,7 +107,7 @@ func main() {
 			}
 
 			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponRaw}).Info()
-			if err = emailCoupon(*profile, coupon); err != nil {
+			if err = emailCoupon(cfg, *profile, coupon); err != nil {
 				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponRaw, "to": profile.Login}).Error(err)
 				continue
 			}
@@ -128,7 +122,7 @@ func main() {
 	}
 }
 
-func emailCoupon(profile models.Profile, coupon models.Coupon) error {
+func emailCoupon(cfg *common.Config, profile models.Profile, coupon models.Coupon) error {
 	from := mail.NewEmail("Coupon Clipper StopAndShop", "noreply@coupon-clipper-stopandshop.herokuapp.com")
 	subject := fmt.Sprintf("[NEW] %s", coupon.Title)
 	to := mail.NewEmail(profile.FirstName, profile.Login)
@@ -154,7 +148,7 @@ func emailCoupon(profile models.Profile, coupon models.Coupon) error {
 	m := mail.NewV3MailInit(from, subject, to, content)
 	// TODO add link to load to card
 
-	request := sendgrid.GetRequest(os.Getenv("SENDGRID_API_KEY"), "/v3/mail/send", "https://api.sendgrid.com")
+	request := sendgrid.GetRequest(cfg.SendgridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
 	request.Method = "POST"
 	request.Body = mail.GetRequestBody(m)
 	_, err := sendgrid.API(request)
