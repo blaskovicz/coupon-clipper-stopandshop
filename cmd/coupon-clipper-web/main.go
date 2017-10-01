@@ -7,15 +7,16 @@ import (
 
 	"github.com/blaskovicz/coupon-clipper-stopandshop/common"
 	stopandshop "github.com/blaskovicz/go-stopandshop"
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 
-func RouteHealthcheck(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func RouteHealthcheck(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("SUCCESS"))
 }
-func RouteClipCoupon(cfg *common.Config) func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func RouteClipCoupon(cfg *common.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		couponID := mux.Vars(r)["id"]
 		// very basic and un-dry for v0.1
 		w.Header().Set("Content-Type", "text/plain")
 
@@ -34,7 +35,6 @@ func RouteClipCoupon(cfg *common.Config) func(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		couponID := ps.ByName("id")
 		if couponID == "" {
 			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "empty-coupon-id"}).Warn()
 			w.WriteHeader(400)
@@ -80,9 +80,9 @@ func main() {
 		logrus.Fatal(err)
 	}
 	setupLogger(cfg)
-	router := httprouter.New()
-	router.GET("/coupons/:id/clip", RouteClipCoupon(cfg))
-	router.GET("/healthcheck", RouteHealthcheck)
+	r := mux.NewRouter()
+	r.HandleFunc("/coupons/{id}/clip", RouteClipCoupon(cfg)).Methods("GET")
+	r.HandleFunc("/healthcheck", RouteHealthcheck).Methods("GET")
 	logrus.Infof("Server staring on port %d", cfg.Port)
-	logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), router))
+	logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), r))
 }

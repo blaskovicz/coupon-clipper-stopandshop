@@ -121,9 +121,9 @@ func main() {
 var t = template.Must(template.New("email").Parse(`
 	<html>
 		<body>
-			<div style='border: 1px solid #000; width: 440px; min-height: 100px; padding: 5px'>
+			<div style='border: 1px solid #000; width: 440px; padding: 5px'>
 				<h3>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h3>
-				<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 50px; height: 50px'/>
+				<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
 				<div style='display:inline-block; overflow: auto; width:350px'>
 					<p style='color:gray'>{{.Description}}</p>
 				</div>
