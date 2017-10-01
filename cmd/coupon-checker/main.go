@@ -85,42 +85,35 @@ func main() {
 			continue
 		}
 		for _, coupon := range coupons {
-			coupon.LegalText = "" // I don't care about searching this field
-			couponRaw := strings.ToLower(fmt.Sprintf("%#v", coupon))
-			if !cfg.EmailAllCoupons {
-				if freebieRe.FindString(couponRaw) == "" {
-					// make sure it's not part of another word
-					continue
-				} else if strings.Contains(couponRaw, "buy") && strings.Contains(couponRaw, "get one") {
-					// ignore buy N get one
-					continue
-				} else if strings.Contains(strings.ToLower(coupon.Title), "save") {
-					// eg "save $2.00"
-					continue
-				}
+			// look for "free" as its own word without any "buy one get one free" phrases...
+			if fieldValue := strings.ToLower(coupon.Title); !strings.Contains(fieldValue, "free") || strings.Contains(fieldValue, "buy") || freebieRe.FindString(fieldValue) == "" {
+				continue
+			} else if fieldValue := strings.ToLower(coupon.Description); strings.Contains(fieldValue, "buy") {
+				continue
 			}
 
 			key := fmt.Sprintf("sent_coupons:%s", profile.ID)
 			sentCoupon, err := rClient.SIsMember(key, coupon.ID).Result()
+			couponString := fmt.Sprintf("%#v", coupon)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sismember", "coupon": couponRaw}).Error(err)
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sismember", "coupon": couponString}).Error(err)
 				continue
-			} else if sentCoupon {
+			} else if sentCoupon && !cfg.EmailAllCoupons {
 				continue // don't re-send coupon
 			}
 
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponRaw}).Info()
+			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponString}).Info()
 			if err = emailCoupon(cfg, *profile, coupon); err != nil {
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponRaw, "to": profile.Login}).Error(err)
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponString, "to": profile.Login}).Error(err)
 				continue
 			}
 			if err := rClient.SAdd(key, coupon.ID).Err(); err != nil {
 				// failed to persist the coupon in our sent items list, will re-email next run
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sadd", "coupon": couponRaw, "to": profile.Login}).Error(err)
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sadd", "coupon": couponString, "to": profile.Login}).Error(err)
 				continue
 			}
 			// TODO reap old coupon records that have passed coupon.expirationDate
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon-complete", "coupon": couponRaw, "to": profile.Login}).Info()
+			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon-complete", "coupon": couponString, "to": profile.Login}).Info()
 		}
 	}
 }
