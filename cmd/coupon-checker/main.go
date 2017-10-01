@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"html"
+	"html/template"
 	"net/url"
 	"regexp"
 	"strings"
@@ -122,37 +125,40 @@ func main() {
 	}
 }
 
-func emailCoupon(cfg *common.Config, profile models.Profile, coupon models.Coupon) error {
-	from := mail.NewEmail("Coupon Clipper StopAndShop", "noreply@coupon-clipper-stopandshop.herokuapp.com")
-	subject := fmt.Sprintf("[NEW] %s", coupon.Title)
-	to := mail.NewEmail(profile.FirstName, profile.Login)
-	content := mail.NewContent("text/html", fmt.Sprintf(`
+var t = template.Must(template.New("email").Parse(`
 	<html>
 		<body>
-			<h3>%s</h3>
-			<div style='border: 1px solid #000; width: 600px; height: 200px; padding: 10px'>
-				<div style='display:inline-block;width:150px'>
-					<img src='%s' alt='coupon image' style='display: inline-block'/>
+			<div style='border: 1px solid #000; width: 440px; min-height: 100px; padding: 5px'>
+				<h3>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h3>
+				<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 50px; height: 50px'/>
+				<div style='display:inline-block; overflow: auto; width:350px'>
+					<p style='color:gray'>{{.Description}}</p>
 				</div>
-				<div style='display:inline-block; overflow-y: auto; width:450px'>
-					<p style='font-weight:bold'>%s <small>[Valid %s to %s]</small></p>
-					<p style='color:gray'>%s</p>
-				</div>
-				<div>
-					<a target='_blank' href='https://coupon-clipper-stopandshop.herokuapp.com/coupons/%s/clip' style='border: 1px dotted gray'>Clip</a>
+				<div style='margin-top: 5px'>
+					<a target='_blank' href='https://coupon-clipper-stopandshop.herokuapp.com/coupons/{{.ID}}/clip'>Clip</a>
 				</div>
 			</div>
 		</body>
 	</html>
-`, coupon.Name, coupon.URL, coupon.Title, coupon.StartDate, coupon.EndDate, coupon.Description, coupon.ID))
+`))
+
+func emailCoupon(cfg *common.Config, profile models.Profile, coupon models.Coupon) error {
+	from := mail.NewEmail("Coupon Clipper StopAndShop", "noreply@coupon-clipper-stopandshop.herokuapp.com")
+	subject := fmt.Sprintf("[NEW] %s: %s", html.EscapeString(coupon.Name), html.EscapeString(coupon.Title))
+	to := mail.NewEmail(profile.FirstName, profile.Login)
+	var buff bytes.Buffer
+	if err := t.Execute(&buff, coupon); err != nil {
+		return fmt.Errorf("Failed to generate email: %s", err)
+	}
+	content := mail.NewContent("text/html", buff.String())
+
 	m := mail.NewV3MailInit(from, subject, to, content)
 	// TODO add link to load to card
 
 	request := sendgrid.GetRequest(cfg.SendgridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
 	request.Method = "POST"
 	request.Body = mail.GetRequestBody(m)
-	_, err := sendgrid.API(request)
-	if err != nil {
+	if _, err := sendgrid.API(request); err != nil {
 		return fmt.Errorf("Failed to send coupon: %s", err)
 	}
 	return nil
