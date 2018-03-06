@@ -1,0 +1,44 @@
+version: '3.3'
+
+services:
+  web:
+    image: 127.0.0.1:5000/coupon-clipper-stopandshop
+    build: .
+    environment:
+      LOG_LEVEL: verbose
+    ports:
+      - "6091:6091"
+    secrets: &web_secrets
+      - source: coupon-clipper-stopandshop_session_secret_v1
+        target: session_secret
+      - source: coupon-clipper-stopandshop_database_url_v2
+        target: database_url
+      - source: coupon-clipper-stopandshop_sendgrid_username_v1
+        target: sendgrid_username
+      - source: coupon-clipper-stopandshop_sendgrid_password_v1
+        target: sendgrid_password
+      - source: coupon-clipper-stopandshop_sendgrid_api_key_v1
+        target: sendgrid_api_key
+      - source: coupon-clipper-stopandshop_crypt_keeper_key_v1
+        target: crypt_keeper_key
+  worker:
+    image: 127.0.0.1:5000/coupon-clipper-stopandshop
+    environment:
+      LOG_LEVEL: verbose
+    command: ["coupon-checker"]
+    secrets:
+      *web_secrets
+
+secrets:
+  coupon-clipper-stopandshop_session_secret_v1:
+    external: true
+  coupon-clipper-stopandshop_database_url_v2:
+    external: true
+  coupon-clipper-stopandshop_sendgrid_username_v1:
+    external: true
+  coupon-clipper-stopandshop_sendgrid_password_v1:
+    external: true
+  coupon-clipper-stopandshop_sendgrid_api_key_v1:
+    external: true
+  coupon-clipper-stopandshop_crypt_keeper_key_v1:
+    external: true

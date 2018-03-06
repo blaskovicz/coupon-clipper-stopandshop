@@ -1,4 +1,5 @@
 /coupon-clipper-web
+/.env
 /coupon-checker
 /.gitignore
 /.dockerignore

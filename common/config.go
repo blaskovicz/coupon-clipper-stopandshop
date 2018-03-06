@@ -1,12 +1,17 @@
 package common
 
 import (
+	swarmed "github.com/blaskovicz/go-swarmed"
 	"github.com/jinzhu/configor"
 	"github.com/joho/godotenv"
 )
 
 func init() {
 	godotenv.Load()
+	err := swarmed.LoadSecrets()
+	if err != nil {
+		panic(err)
+	}
 }
 
 type Config struct {

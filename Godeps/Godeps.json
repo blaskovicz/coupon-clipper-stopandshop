@@ -24,6 +24,10 @@
 			"Rev": "7592c6069dfcf570baeb71b3a78c0709444001dd"
 		},
 		{
+			"ImportPath": "github.com/blaskovicz/go-swarmed",
+			"Rev": "aab60b3f7f685e030aebf7004197d087221f546e"
+		},
+		{
 			"ImportPath": "github.com/gorilla/context",
 			"Comment": "v1.1-7-g08b5f42",
 			"Rev": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
