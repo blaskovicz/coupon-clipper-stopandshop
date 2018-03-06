@@ -123,7 +123,7 @@ func main() {
 				couponString := fmt.Sprintf("%#v", coupon)
 
 				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponString}).Info()
-				if err = emailCoupon(cfg, *profile, coupon); err != nil {
+				if err = emailCoupon(cfg, *profile, &coupon); err != nil {
 					logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponString, "to": profile.Login}).Error(err)
 					continue
 				}
@@ -155,12 +155,17 @@ func main() {
 	}
 }
 
-func emailCoupon(cfg *common.Config, profile models.Profile, coupon models.Coupon) error {
-	from := mail.NewEmail("Coupon Clipper StopAndShop", "noreply@coupon-clipper-stopandshop.herokuapp.com")
+type couponEmailData struct {
+	Coupon *models.Coupon
+	Config *common.Config
+}
+
+func emailCoupon(cfg *common.Config, profile models.Profile, coupon *models.Coupon) error {
+	from := mail.NewEmail("Coupon Clipper StopAndShop", fmt.Sprintf("noreply@%s", cfg.AppDomain))
 	subject := fmt.Sprintf("[NEW] %s: %s", html.EscapeString(coupon.Name), html.EscapeString(coupon.Title))
 	to := mail.NewEmail(profile.FirstName, profile.Login)
 	var buff bytes.Buffer
-	if err := common.Templates.ExecuteTemplate(&buff, "clip-coupon.tmpl", coupon); err != nil {
+	if err := common.Templates.ExecuteTemplate(&buff, "clip-coupon.tmpl", couponEmailData{coupon, cfg}); err != nil {
 		return fmt.Errorf("Failed to generate email: %s", err)
 	}
 	content := mail.NewContent("text/html", buff.String())

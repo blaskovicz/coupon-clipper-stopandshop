@@ -23,6 +23,7 @@ type Config struct {
 	Port                int    `env:"PORT" default:"3000"`
 	SessionSecret       string `env:"SESSION_SECRET" required:"true"`
 	EncryptionKey       string `env:"CRYPT_KEEPER_KEY" required:"true"`
+	AppDomain           string `env:"APP_DOMAIN" required:"true"`
 }
 
 func LoadConfig() (*Config, error) {

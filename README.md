@@ -1,15 +1,16 @@
 # Coupon Clipper Stop and Shop
-> Automatically get reminded about free coupons
+> Automatically get reminded about free coupons!
+
+[coupon-clipper-stopandshop.carlyzach.com](https://coupon-clipper-stopandshop.carlyzach.com/).
 
 ## Developing
 
-
+Make changes, and then run `go build ./...` or `docker-compose build`.
 
 ## Deploying
 
-This app runs on [heroku](https://coupon-clipper-stopandshop.herokuapp.com/).
 
-To deploy:
+To deploy to heroku:
 
 1) `heroku create my-app-name`
 2) `heroku buildpacks:set heroku/go`

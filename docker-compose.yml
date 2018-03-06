@@ -4,8 +4,9 @@ services:
   web:
     image: 127.0.0.1:5000/coupon-clipper-stopandshop
     build: .
-    environment:
+    environment: &web_env
       LOG_LEVEL: verbose
+      APP_DOMAIN: coupon-clipper-stopandshop.carlyzach.com
     ports:
       - "6091:6091"
     secrets: &web_secrets
@@ -24,7 +25,7 @@ services:
   worker:
     image: 127.0.0.1:5000/coupon-clipper-stopandshop
     environment:
-      LOG_LEVEL: verbose
+      *web_env
     command: ["coupon-checker"]
     secrets:
       *web_secrets
