@@ -2,40 +2,21 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/blaskovicz/coupon-clipper-stopandshop/common"
+	cryptkeeper "github.com/blaskovicz/go-cryptkeeper"
 	stopandshop "github.com/blaskovicz/go-stopandshop"
 	"github.com/blaskovicz/go-stopandshop/models"
-	"github.com/go-redis/redis"
 	sendgrid "github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/sirupsen/logrus"
 )
-
-func getRedis(cfg *common.Config) (*redis.Client, error) {
-	u, err := url.Parse(cfg.RedisURL)
-	if err != nil {
-		return nil, err
-	}
-	var password string
-	if u.User != nil {
-		password, _ = u.User.Password()
-	}
-	c := redis.NewClient(&redis.Options{
-		Addr:     u.Host,
-		Password: password,
-	})
-	if _, err = c.Ping().Result(); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
 
 func getTicker(cfg *common.Config) (<-chan time.Time, error) {
 	if cfg.TickIntervalSeconds < 5 {
@@ -55,64 +36,121 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	db, err := common.ConnectDB(cfg)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	for range ticker {
 		logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "loop-start"}).Info()
-		// TODO connection pool
-		rClient, err := getRedis(cfg)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "connect-redis"}).Error(err)
-			continue
-		}
-		// check for coupons
-		client := stopandshop.New()
-		if err = client.Login(cfg.Username, cfg.Password); err != nil {
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "login"}).Error(err)
-			continue
-		}
-		profile, err := client.ReadProfile()
-		if err != nil {
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "read-profile"}).Error(err)
-			continue
-		}
-		coupons, err := client.ReadCoupons(profile.CardNumber)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "read-coupons"}).Error(err)
-			continue
-		}
 
-		if coupons == nil || len(coupons) == 0 {
-			continue
+		// for every user
+		rows, err := db.Query("SELECT id, access_token, refresh_token, preferences, internal_state FROM users")
+		if err != nil {
+			logrus.Fatal(err)
 		}
-		for _, coupon := range coupons {
-			// look for "free" as its own word without any "buy one get one free" phrases...
-			if fieldValue := strings.ToLower(coupon.Title); !strings.Contains(fieldValue, "free") || strings.Contains(fieldValue, "buy") || freebieRe.FindString(fieldValue) == "" {
-				continue
-			} else if fieldValue := strings.ToLower(coupon.Description); strings.Contains(fieldValue, "buy") {
-				continue
+		for rows.Next() {
+			var id int
+			var at cryptkeeper.CryptString
+			var rt cryptkeeper.CryptString
+			prefs := map[string]interface{}{}
+			state := map[string]interface{}{}
+			prefsB := []byte{}
+			stateB := []byte{}
+			if err = rows.Scan(&id, &at, &rt, &prefsB, &stateB); err != nil {
+				logrus.Fatal(err)
 			}
 
-			key := fmt.Sprintf("sent_coupons:%s", profile.ID)
-			sentCoupon, err := rClient.SIsMember(key, coupon.ID).Result()
-			couponString := fmt.Sprintf("%#v", coupon)
+			if err := json.Unmarshal(prefsB, &prefs); err != nil {
+				panic(err)
+			}
+			if err := json.Unmarshal(stateB, &state); err != nil {
+				panic(err)
+			}
+
+			// TODO use refresh token
+			// check for coupons
+			client := stopandshop.New().SetToken(&models.Token{AccessToken: at.String, RefreshToken: &rt.String})
+			var newToken bool
+			if err := client.RefreshAccessToken(); err != nil {
+				// TODO email if shopandshop.IsRefreshTokenExpired(err)
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "refresh-access-token", "token.access": at.String, "token.refresh": rt.String}).Error(err)
+				continue
+			}
+			t := client.Token()
+			if t.AccessToken != at.String {
+				at.String = t.AccessToken
+				newToken = true
+			}
+			if *t.RefreshToken != rt.String {
+				rt.String = *t.RefreshToken
+				newToken = true
+			}
+
+			profile, err := client.ReadProfile()
 			if err != nil {
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sismember", "coupon": couponString}).Error(err)
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "read-profile", "token.access": at.String, "token.refresh": rt.String}).Error(err)
 				continue
-			} else if sentCoupon && !cfg.EmailAllCoupons {
-				continue // don't re-send coupon
+			}
+			coupons, err := client.ReadCoupons(profile.CardNumber)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "read-coupons"}).Error(err)
+				continue
 			}
 
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponString}).Info()
-			if err = emailCoupon(cfg, *profile, coupon); err != nil {
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponString, "to": profile.Login}).Error(err)
+			if coupons == nil || len(coupons) == 0 {
 				continue
 			}
-			if err := rClient.SAdd(key, coupon.ID).Err(); err != nil {
-				// failed to persist the coupon in our sent items list, will re-email next run
-				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "redis.sadd", "coupon": couponString, "to": profile.Login}).Error(err)
+
+			var sentCoupons int
+			for _, coupon := range coupons {
+				// look for "free" as its own word without any "buy one get one free" phrases...
+				if fieldValue := strings.ToLower(coupon.Title); !strings.Contains(fieldValue, "free") || strings.Contains(fieldValue, "buy") || freebieRe.FindString(fieldValue) == "" {
+					continue
+				} else if fieldValue := strings.ToLower(coupon.Description); strings.Contains(fieldValue, "buy") {
+					continue
+				}
+
+				var ok bool
+				var sentType map[string]interface{}
+				if state["sent_coupons"] == nil {
+					state["sent_coupons"] = map[string]interface{}{}
+				}
+				sentType, ok = state["sent_coupons"].(map[string]interface{})
+				if ok && sentType[coupon.ID] != nil && !cfg.EmailAllCoupons {
+					continue // already sent this coupon
+				}
+
+				couponString := fmt.Sprintf("%#v", coupon)
+
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponString}).Info()
+				if err = emailCoupon(cfg, *profile, coupon); err != nil {
+					logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponString, "to": profile.Login}).Error(err)
+					continue
+				}
+				sentCoupons++
+				sentType[coupon.ID] = coupon.EndDate // yyyy-mm-dd
+				// TODO reap old coupon records that have passed coupon.expirationDate
+				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon-complete", "coupon": couponString, "to": profile.Login}).Info()
+			}
+
+			if newToken {
+				if _, err = db.Exec("UPDATE users SET access_token=$1, refresh_token=$2 WHERE id=$3", &at, &rt, id); err != nil {
+					logrus.Fatal(err)
+				}
+			}
+
+			if sentCoupons == 0 {
 				continue
 			}
-			// TODO reap old coupon records that have passed coupon.expirationDate
-			logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon-complete", "coupon": couponString, "to": profile.Login}).Info()
+
+			b, err := json.Marshal(state)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+
+			if _, err = db.Exec("UPDATE users SET internal_state=$1 WHERE id=$2", b, id); err != nil {
+				logrus.Fatal(err)
+			}
 		}
 	}
 }

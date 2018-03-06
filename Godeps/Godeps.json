@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/blaskovicz/coupon-clipper-stopandshop",
-	"GoVersion": "go1.8",
+	"GoVersion": "go1.9",
 	"GodepVersion": "v79",
 	"Packages": [
 		"./..."
@@ -12,12 +12,16 @@
 			"Rev": "a368813c5e648fee92e5f6c30e3944ff9d5e8895"
 		},
 		{
+			"ImportPath": "github.com/blaskovicz/go-cryptkeeper",
+			"Rev": "cc4acbb27fed2b464441bee2ad793172a326fc34"
+		},
+		{
 			"ImportPath": "github.com/blaskovicz/go-stopandshop",
-			"Rev": "7fded8e906b7bc433d97fa2b4b1aa3725df469f3"
+			"Rev": "7592c6069dfcf570baeb71b3a78c0709444001dd"
 		},
 		{
 			"ImportPath": "github.com/blaskovicz/go-stopandshop/models",
-			"Rev": "7fded8e906b7bc433d97fa2b4b1aa3725df469f3"
+			"Rev": "7592c6069dfcf570baeb71b3a78c0709444001dd"
 		},
 		{
 			"ImportPath": "github.com/go-redis/redis",
@@ -50,9 +54,24 @@
 			"Rev": "fdafb11e5fa5d52d965e12073c8a58468c98ebe2"
 		},
 		{
+			"ImportPath": "github.com/gorilla/context",
+			"Comment": "v1.1-7-g08b5f42",
+			"Rev": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+		},
+		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Comment": "v1.5.0-1-g3f19343",
 			"Rev": "3f19343c7d9ce75569b952758bd236af94956061"
+		},
+		{
+			"ImportPath": "github.com/gorilla/securecookie",
+			"Comment": "v1.1-6-ge59506c",
+			"Rev": "e59506cc896acb7f7bf732d4fdf5e25f7ccd8983"
+		},
+		{
+			"ImportPath": "github.com/gorilla/sessions",
+			"Comment": "v1.1-7-gb61c93c",
+			"Rev": "b61c93cb7f67533c8bfbb5ea450efc07e5833c5e"
 		},
 		{
 			"ImportPath": "github.com/jinzhu/configor",
@@ -67,6 +86,16 @@
 			"ImportPath": "github.com/julienschmidt/httprouter",
 			"Comment": "v1.1-51-g975b5c4",
 			"Rev": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-181-gb77235e",
+			"Rev": "b77235e3890a962fe8a6f8c4c7198679ca7814e7"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/oid",
+			"Comment": "go1.0-cutoff-181-gb77235e",
+			"Rev": "b77235e3890a962fe8a6f8c4c7198679ca7814e7"
 		},
 		{
 			"ImportPath": "github.com/sendgrid/rest",

@@ -12,13 +12,12 @@ func init() {
 type Config struct {
 	EmailAllCoupons     bool   `env:"EMAIL_ALL_COUPONS"`
 	SendgridAPIKey      string `env:"SENDGRID_API_KEY" required:"true"`
-	Username            string `env:"USERNAME" required:"true"`
-	Password            string `env:"PASSWORD" required:"true"`
 	LogLevel            string `env:"LOG_LEVEL" default:"info"`
-	RedisURL            string `env:"REDIS_URL" required:"true"`
+	DatabaseURL         string `env:"DATABASE_URL" required:"true"`
 	TickIntervalSeconds int    `env:"TICK_INTERVAL_SECONDS" default:"360"`
 	Port                int    `env:"PORT" default:"3000"`
 	SessionSecret       string `env:"SESSION_SECRET" required:"true"`
+	EncryptionKey       string `env:"CRYPT_KEEPER_KEY" required:"true"`
 }
 
 func LoadConfig() (*Config, error) {

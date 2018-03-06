@@ -1,2 +1,4 @@
 *.swp
 .env
+/coupon-checker
+/coupon-clipper-web

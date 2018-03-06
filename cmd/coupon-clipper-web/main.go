@@ -39,15 +39,19 @@ func main() {
 		logrus.Fatal(err)
 	}
 	setupLogger(cfg)
+	db, err := common.ConnectDB(cfg)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	var store = sessions.NewCookieStore([]byte(cfg.SessionSecret))
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", web.RouteIndex(store)).Methods("GET")
+	r.HandleFunc("/", web.RouteIndex(cfg, store, db)).Methods("GET")
 	r.HandleFunc("/auth/login", web.RouteLoginForm(store)).Methods("GET")
-	r.HandleFunc("/auth/login", web.RouteLogin(store)).Methods("POST")
+	r.HandleFunc("/auth/login", web.RouteLogin(cfg, store, db)).Methods("POST")
 	r.HandleFunc("/auth/logout", web.RouteLogout(store)).Methods("GET")
-	r.HandleFunc("/coupons/{id}/clip", web.RouteClipCoupon(store, cfg)).Methods("GET")
+	r.HandleFunc("/coupons/{id}/clip", web.RouteClipCoupon(store, cfg, db)).Methods("GET")
 	r.HandleFunc("/healthcheck", web.RouteHealthcheck).Methods("GET")
 
 	logrus.Infof("Server staring on port %d", cfg.Port)

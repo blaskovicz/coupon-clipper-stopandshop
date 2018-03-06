@@ -1,23 +1,20 @@
 package web
 
 import (
-	"encoding/gob"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/blaskovicz/coupon-clipper-stopandshop/common"
+	"github.com/blaskovicz/go-cryptkeeper"
 	stopandshop "github.com/blaskovicz/go-stopandshop"
 	"github.com/blaskovicz/go-stopandshop/models"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/sirupsen/logrus"
 )
-
-func init() {
-	// for session storage
-	gob.Register(&models.Token{})
-}
 
 type ByLoadStatus []models.Coupon
 
@@ -30,7 +27,7 @@ func RouteHealthcheck(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("SUCCESS"))
 }
 
-func RouteClipCoupon(ss sessions.Store, cfg *common.Config) http.HandlerFunc {
+func RouteClipCoupon(ss sessions.Store, cfg *common.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session := getSessionOrRedirect(ss, r, w)
 		if session == nil {
@@ -42,17 +39,30 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config) http.HandlerFunc {
 		delete(session.Values, "flashError")
 		delete(session.Values, "flashSuccess")
 
-		if session.Values["token"] == nil {
+		if session.Values["profileID"] == nil {
 			session.Values["flashError"] = fmt.Sprintf("Invalid auth token. Try re-logging in.")
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
 			return
 		}
 
-		token, _ := session.Values["token"].(*models.Token)
-		client := stopandshop.New().SetToken(token)
+		profileID, _ := session.Values["profileID"].(string)
+		var at cryptkeeper.CryptString
+		if err := db.QueryRow("SELECT access_token FROM users WHERE profile_id = $1", profileID).Scan(&at); err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "db.query-row"}).Warn(err)
+			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
+			session.Save(r, w)
+			http.Redirect(w, r, "/auth/logout", http.StatusFound)
+			return
+		}
+
+		var token models.Token
+		token.AccessToken = at.String
+
+		client := stopandshop.New().SetToken(&token)
 		profile, err := client.ReadProfile()
 		if err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "read-profile"}).Warn(err)
 			session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
@@ -75,7 +85,7 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config) http.HandlerFunc {
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
-		logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "coupon-clipped", "username": profile.Login, "coupon": couponID}).Info()
+		logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "coupon-clipped", "profile": profile.ID, "username": profile.Login, "coupon": couponID}).Info()
 		session.Values["flashSuccess"] = fmt.Sprintf("Clipped coupon %s successfully!", couponID)
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -83,7 +93,7 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config) http.HandlerFunc {
 	}
 }
 
-func RouteIndex(ss sessions.Store) http.HandlerFunc {
+func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session := getSessionOrRedirect(ss, r, w)
 		if session == nil {
@@ -92,25 +102,37 @@ func RouteIndex(ss sessions.Store) http.HandlerFunc {
 		}
 		logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "start"}).Info()
 
-		if session.Values["token"] == nil {
+		if session.Values["profileID"] == nil {
 			session.Values["flashError"] = fmt.Sprintf("Invalid auth token. Try re-logging in.")
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
 			return
 		}
 
-		templateData := map[string]interface{}{
-			"flashError":   session.Values["flashError"],
-			"flashSuccess": session.Values["flashSuccess"],
+		profileID, _ := session.Values["profileID"].(string)
+		var at cryptkeeper.CryptString
+		if err := db.QueryRow("SELECT access_token FROM users WHERE profile_id = $1", profileID).Scan(&at); err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "db.query-row"}).Warn(err)
+			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
+			session.Save(r, w)
+			http.Redirect(w, r, "/auth/logout", http.StatusFound)
+			return
 		}
-		token, _ := session.Values["token"].(*models.Token)
-		client := stopandshop.New().SetToken(token)
+
+		var token models.Token
+		token.AccessToken = at.String
+
+		client := stopandshop.New().SetToken(&token)
 		profile, err := client.ReadProfile()
 		if err != nil {
 			session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
 			return
+		}
+		templateData := map[string]interface{}{
+			"flashError":   session.Values["flashError"],
+			"flashSuccess": session.Values["flashSuccess"],
 		}
 		templateData["profile"] = profile
 
@@ -159,7 +181,7 @@ func RouteLoginForm(ss sessions.Store) http.HandlerFunc {
 	}
 }
 
-func RouteLogin(ss sessions.Store) http.HandlerFunc {
+func RouteLogin(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// if they are logged in, go back to index
 		session, _ := ss.Get(r, "session")
@@ -205,13 +227,34 @@ func RouteLogin(ss sessions.Store) http.HandlerFunc {
 			return
 		}
 
+		profile, err := client.ReadProfile()
+		if err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.login", "at": "stopandshop.read-profile"}).Warn(err)
+			session.Values["flashError"] = "Login failed. Couldn't fetch profile."
+			session.Save(r, w)
+			http.Redirect(w, r, "/auth/login", http.StatusFound)
+			return
+		}
+
+		at := cryptkeeper.CryptString{client.Token().AccessToken}
+		rt := cryptkeeper.CryptString{*client.Token().RefreshToken}
+		_, err = db.Exec("INSERT INTO users(profile_id, access_token, refresh_token, preferences, internal_state, last_login) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (profile_id) DO UPDATE SET access_token=$2, refresh_token=$3, last_login=$6",
+			profile.ID, &at, &rt, []byte("{}"), []byte("{}"), time.Now())
+		if err != nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.login", "at": "db.upsert"}).Warn(err)
+			session.Values["flashError"] = "Login failed. Couldn't create or update profile."
+			session.Save(r, w)
+			http.Redirect(w, r, "/auth/login", http.StatusFound)
+			return
+		}
+
 		delete(session.Values, "username")
 		session.Values["loggedIn"] = "true"
 		session.Values["flashSuccess"] = "Success. Your are now logged in."
-		session.Values["token"] = client.GetToken()
+		session.Values["profileID"] = profile.ID
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
-		logrus.WithFields(logrus.Fields{"ref": "routes.login", "at": "stopandshop.login", "username": username}).Info()
+		logrus.WithFields(logrus.Fields{"ref": "routes.login", "at": "stopandshop.login", "username": username, "profile": profile.ID}).Info()
 	}
 }
 
