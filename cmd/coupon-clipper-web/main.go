@@ -46,11 +46,13 @@ func main() {
 
 	var store = sessions.NewCookieStore([]byte(cfg.SessionSecret))
 
+	common.MustLoadTemplates(cfg)
+
 	r := mux.NewRouter()
 	r.HandleFunc("/", web.RouteIndex(cfg, store, db)).Methods("GET")
-	r.HandleFunc("/auth/login", web.RouteLoginForm(store)).Methods("GET")
+	r.HandleFunc("/auth/login", web.RouteLoginForm(cfg, store)).Methods("GET")
 	r.HandleFunc("/auth/login", web.RouteLogin(cfg, store, db)).Methods("POST")
-	r.HandleFunc("/auth/logout", web.RouteLogout(store)).Methods("GET")
+	r.HandleFunc("/auth/logout", web.RouteLogout(cfg, store)).Methods("GET")
 	r.HandleFunc("/coupons/{id}/clip", web.RouteClipCoupon(store, cfg, db)).Methods("GET")
 	r.HandleFunc("/healthcheck", web.RouteHealthcheck).Methods("GET")
 

@@ -48,7 +48,8 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config, db *sql.DB) http.Han
 
 		profileID, _ := session.Values["profileID"].(string)
 		var at cryptkeeper.CryptString
-		if err := db.QueryRow("SELECT access_token FROM users WHERE profile_id = $1", profileID).Scan(&at); err != nil {
+		var rt cryptkeeper.CryptString
+		if err := db.QueryRow("SELECT access_token,refresh_token FROM users WHERE profile_id = $1", profileID).Scan(&at,&rt); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "db.query-row"}).Warn(err)
 			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
 			session.Save(r, w)
@@ -58,15 +59,27 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config, db *sql.DB) http.Han
 
 		var token models.Token
 		token.AccessToken = at.String
+		token.RefreshToken = &rt.String
 
 		client := stopandshop.New().SetToken(&token)
 		profile, err := client.ReadProfile()
 		if err != nil {
-			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "read-profile"}).Warn(err)
-			session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
-			session.Save(r, w)
-			http.Redirect(w, r, "/auth/logout", http.StatusFound)
-			return
+			if stopandshop.IsAccessTokenExpired(err) {
+				err = client.RefreshAccessToken()
+				if err == nil {
+					if _, err = db.Exec("UPDATE users SET access_token=$1, refresh_token=$2 WHERE profile_id=$3", &at, &rt, profileID); err != nil {
+						logrus.Error(err)
+					}
+					profile, err = client.ReadProfile()
+				}
+			}
+			if err != nil {
+				logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "read-profile"}).Warn(err)
+				session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
+				session.Save(r, w)
+				http.Redirect(w, r, "/auth/logout", http.StatusFound)
+				return
+			}
 		}
 
 		couponID := mux.Vars(r)["id"]
@@ -111,7 +124,8 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 
 		profileID, _ := session.Values["profileID"].(string)
 		var at cryptkeeper.CryptString
-		if err := db.QueryRow("SELECT access_token FROM users WHERE profile_id = $1", profileID).Scan(&at); err != nil {
+		var rt cryptkeeper.CryptString
+		if err := db.QueryRow("SELECT access_token,refresh_token FROM users WHERE profile_id = $1", profileID).Scan(&at,&rt); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "db.query-row"}).Warn(err)
 			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
 			session.Save(r, w)
@@ -121,13 +135,25 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 
 		var token models.Token
 		token.AccessToken = at.String
+		token.RefreshToken = &rt.String
 
 		client := stopandshop.New().SetToken(&token)
 		profile, err := client.ReadProfile()
 		if err != nil {
-			session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
-			session.Save(r, w)
-			http.Redirect(w, r, "/auth/logout", http.StatusFound)
+			if stopandshop.IsAccessTokenExpired(err) {
+				err = client.RefreshAccessToken()
+				if err == nil {
+					if _, err = db.Exec("UPDATE users SET access_token=$1, refresh_token=$2 WHERE profile_id=$3", &at, &rt, profileID); err != nil {
+						logrus.Error(err)
+					}
+					profile, err = client.ReadProfile()
+				}
+			}
+			if err != nil {
+				session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
+				session.Save(r, w)
+				http.Redirect(w, r, "/auth/logout", http.StatusFound)
+			}
 			return
 		}
 		templateData := map[string]interface{}{
@@ -148,13 +174,13 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 		delete(session.Values, "flashSuccess")
 
 		session.Save(r, w)
-		if err := common.Templates.ExecuteTemplate(w, "index.tmpl", templateData); err != nil {
+		if err := common.Templates(cfg).ExecuteTemplate(w, "index.tmpl", templateData); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "execute-template"}).Error(err)
 		}
 	}
 }
 
-func RouteLoginForm(ss sessions.Store) http.HandlerFunc {
+func RouteLoginForm(cfg *common.Config, ss sessions.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, _ := ss.Get(r, "session")
 		if session.Values["loggedIn"] != nil {
@@ -175,7 +201,7 @@ func RouteLoginForm(ss sessions.Store) http.HandlerFunc {
 		delete(session.Values, "usernameE")
 		delete(session.Values, "passwordE")
 		session.Save(r, w)
-		if err := common.Templates.ExecuteTemplate(w, "login.tmpl", templateData); err != nil {
+		if err := common.Templates(cfg).ExecuteTemplate(w, "login.tmpl", templateData); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "execute-template"}).Error(err)
 		}
 	}
@@ -250,7 +276,7 @@ func RouteLogin(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 
 		delete(session.Values, "username")
 		session.Values["loggedIn"] = "true"
-		session.Values["flashSuccess"] = "Success. Your are now logged in."
+		session.Values["flashSuccess"] = "Success. You are now logged in."
 		session.Values["profileID"] = profile.ID
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -258,7 +284,7 @@ func RouteLogin(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 	}
 }
 
-func RouteLogout(ss sessions.Store) http.HandlerFunc {
+func RouteLogout(cfg *common.Config, ss sessions.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// clear existing session
 		session, _ := ss.Get(r, "session")
@@ -270,7 +296,7 @@ func RouteLogout(ss sessions.Store) http.HandlerFunc {
 		session.Options.MaxAge = -1
 		session.Save(r, w)
 		logrus.WithFields(logrus.Fields{"ref": "routes.logout", "at": "finish"}).Info()
-		if err := common.Templates.ExecuteTemplate(w, "logout.tmpl", templateData); err != nil {
+		if err := common.Templates(cfg).ExecuteTemplate(w, "logout.tmpl", templateData); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "execute-template"}).Error(err)
 		}
 	}

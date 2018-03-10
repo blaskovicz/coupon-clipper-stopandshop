@@ -15,6 +15,7 @@ func init() {
 }
 
 type Config struct {
+	Environment         string   `env:"ENVIRONMENT" default:"production"`
 	EmailAllCoupons     bool   `env:"EMAIL_ALL_COUPONS"`
 	SendgridAPIKey      string `env:"SENDGRID_API_KEY" required:"true"`
 	LogLevel            string `env:"LOG_LEVEL" default:"info"`

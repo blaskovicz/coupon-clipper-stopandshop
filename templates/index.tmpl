@@ -1,28 +1,57 @@
 {{template "header" .}}
 {{ if .profile }}
   <div class="row">
-    <h3 class="col-12">Welcome, {{.profile.FirstName}}! <a href="/auth/logout">Logout?</a></h3>
+    <h3>
+      Welcome, {{.profile.FirstName}}
+      <small><a href="/auth/logout" title='Sign out.'><i class="fa fa-sign-out"></i></a></small>
+    </h3>
   </div>
 {{ end }}
 {{if .coupons }}
   <div class="row">
-    <h3 class="col-12">Your Coupons</h3>
+    <h3>Your Coupons</h3>
   </div>
 {{ range .coupons }}
-  <div class="row">
-    <div class="col-12" style="border-bottom: 1px solid #d2c8c8; {{ if .Loaded }}background-color: #9dcbef {{ end }}">
-			<h4>{{.Name}}: {{.Title}} from {{.StartDate}} to {{.EndDate}}</h4>
-			<img src='{{.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
-			<div style='display:inline-block; overflow: auto; width:350px; vertical-align: middle'>
-				<p style='color:gray'>{{.Description}}</p>
-			</div>
-			<div style='margin-top: 5px'>
-        {{ if not .Loaded }}
-				<a href='/coupons/{{.ID}}/clip'>Clip</a>
-        {{ else }}
-        <i>Already loaded to card.</i>
-        {{ end }}
-			</div>
+  <div class="row border {{ if .Loaded }}border-success{{ end }} mb-2 p-2">
+    <div class="col">
+      <div class="row">
+        <div class="col-12"><h4>{{.Name}}</h4></div>
+      </div>
+      <div class="row">
+        <div class="col-12"><h5><small>{{.Title}}</small></h5></div>
+      </div>
+      <div class="row">
+        <div class="col-2" style="align-self: center">
+          <img
+            style='width:80px;height:100px'
+            src='{{.URL}}'
+            onerror="this.src='//stopandshop.com/static/common/img/offer-placeholder.jpg'"
+            alt='coupon image'
+          />
+        </div>
+        <div class="col-10">
+          <div class="row">
+            <div class="col">Starts <h5>{{.StartDate}}</h5></div>
+            <div class="col">Ends <h5>{{.EndDate}}</h5></div>
+            <div class="col">
+              {{ if not .Loaded }}
+                <a href='/coupons/{{.ID}}/clip' title='Click to load coupon to your Stop&Shop card.'>
+                  <i class="fa fa-cut"></i> Clip</a>
+                </a>
+              {{ else }}
+                <span title='Coupon is loaded to your Stop&Shop card.'>
+                  <i class="fa fa-credit-card"></i><i class="fa fa-check"></i>
+                </span>
+              {{ end }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <p style='color:gray'>{{.Description}}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 {{ end }}
