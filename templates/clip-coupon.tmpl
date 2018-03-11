@@ -1,14 +1,41 @@
 <html>
 	<body>
-		<div style='border: 1px solid #000; width: 440px; padding: 5px'>
-			<h3>{{.Coupon.Name}}: {{.Coupon.Title}} from {{.Coupon.StartDate}} to {{.Coupon.EndDate}}</h3>
-			<img src='{{.Coupon.URL}}' alt='coupon image' style='display: inline-block; width: 80px; height: 100px'/>
-			<div style='display:inline-block; overflow: auto; width:350px; vertical-align:middle'>
-				<p style='color:gray'>{{.Coupon.Description}}</p>
-			</div>
-			<div style='margin-top: 5px'>
-        <a target='_blank' href='https://{{.Config.AppDomain}}/coupons/{{.Coupon.ID}}/clip'>Clip</a>
-			</div>
+		<div style='border: 1px solid #000; width: 600px; padding: 5px'>
+      <div>
+        <h4 style='margin: 0'>{{.Coupon.Name}}</h4>
+        <h5 style='margin: 0'>{{.Coupon.Title}}</h5>
+      </div>
+      <div style='overflow:auto'>
+        <div style='width: 25%; float: left'>
+    			<img
+            src='{{.Coupon.URL}}'
+            alt='coupon image'
+            style='display: inline-block; width: 80px; height: 100px'
+          />
+        </div>
+        <div style='width: 75%; float: left'>
+          <div style='overflow: auto'>
+            <div style='width: 25%; float: left'>
+              <h5>Starts {{.Coupon.StartDate}}</h5>
+            </div>
+            <div style='width: 25%; float: left'>
+              <h5>Ends {{.Coupon.EndDate}}</h5>
+            </div>
+            <div style='width: 25%; float: left'>
+              <h5>
+                <a
+                  target='_blank'
+                  href='https://{{.Config.AppDomain}}/coupons/{{.Coupon.ID}}/clip'>
+                  Clip
+                </a>
+              </h5>
+            </div>
+          </div>
+          <div style='vertical-align:middle'>
+            <p style='color:gray'>{{.Coupon.Description}}</p>
+          </div>
+        </div>
+      </div>
 		</div>
 	</body>
 </html>

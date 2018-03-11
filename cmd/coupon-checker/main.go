@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"net/smtp"
 	"regexp"
 	"strings"
 	"time"
@@ -13,8 +14,6 @@ import (
 	cryptkeeper "github.com/blaskovicz/go-cryptkeeper"
 	stopandshop "github.com/blaskovicz/go-stopandshop"
 	"github.com/blaskovicz/go-stopandshop/models"
-	sendgrid "github.com/sendgrid/sendgrid-go"
-	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,6 +31,9 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
+
+	common.MustLoadTemplates(cfg)
+
 	ticker, err := getTicker(cfg)
 	if err != nil {
 		logrus.Fatal(err)
@@ -161,23 +163,12 @@ type couponEmailData struct {
 }
 
 func emailCoupon(cfg *common.Config, profile models.Profile, coupon *models.Coupon) error {
-	from := mail.NewEmail("Coupon Clipper StopAndShop", fmt.Sprintf("noreply@%s", cfg.AppDomain))
-	subject := fmt.Sprintf("[NEW] %s: %s", html.EscapeString(coupon.Name), html.EscapeString(coupon.Title))
-	to := mail.NewEmail(profile.FirstName, profile.Login)
 	var buff bytes.Buffer
-	if err := common.Templates.ExecuteTemplate(&buff, "clip-coupon.tmpl", couponEmailData{coupon, cfg}); err != nil {
+	if err := common.Templates(cfg).ExecuteTemplate(&buff, "clip-coupon.tmpl", couponEmailData{coupon, cfg}); err != nil {
 		return fmt.Errorf("Failed to generate email: %s", err)
 	}
-	content := mail.NewContent("text/html", buff.String())
 
-	m := mail.NewV3MailInit(from, subject, to, content)
-	// TODO add link to load to card
-
-	request := sendgrid.GetRequest(cfg.SendgridAPIKey, "/v3/mail/send", "https://api.sendgrid.com")
-	request.Method = "POST"
-	request.Body = mail.GetRequestBody(m)
-	if _, err := sendgrid.API(request); err != nil {
-		return fmt.Errorf("Failed to send coupon: %s", err)
-	}
-	return nil
+	subject := fmt.Sprintf("[Stop&Shop Coupon] %s: %s", html.EscapeString(coupon.Name), html.EscapeString(coupon.Title))
+	mailAuth := smtp.CRAMMD5Auth(cfg.Email.Username, cfg.Email.Password)
+	return smtp.SendMail(cfg.Email.ServerAddr, mailAuth, cfg.Email.From, []string{profile.Login}, []byte(fmt.Sprintf("To: %s\r\nFrom: %s\r\nSubject: %s\r\nContent-Type: text/html\r\n\r\n%s\r\n", profile.Login, cfg.Email.From, subject, buff.String())))
 }

@@ -15,9 +15,14 @@ func init() {
 }
 
 type Config struct {
-	Environment         string   `env:"ENVIRONMENT" default:"production"`
-	EmailAllCoupons     bool   `env:"EMAIL_ALL_COUPONS"`
-	SendgridAPIKey      string `env:"SENDGRID_API_KEY" required:"true"`
+	Environment     string `env:"ENVIRONMENT" default:"production"`
+	EmailAllCoupons bool   `env:"EMAIL_ALL_COUPONS"`
+	Email           struct {
+		Username   string `env:"EMAIL_USERNAME" required:"true"`
+		Password   string `env:"EMAIL_PASSWORD" required:"true"`
+		ServerAddr string `env:"EMAIL_SERVER_ADDR" required:"true"` // host:port
+		From       string `env:"EMAIL_FROM" required:"true"`
+	}
 	LogLevel            string `env:"LOG_LEVEL" default:"info"`
 	DatabaseURL         string `env:"DATABASE_URL" required:"true"`
 	TickIntervalSeconds int    `env:"TICK_INTERVAL_SECONDS" default:"360"`

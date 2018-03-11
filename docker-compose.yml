@@ -5,6 +5,7 @@ services:
     image: 127.0.0.1:5000/coupon-clipper-stopandshop
     build: .
     environment: &web_env
+      ENVIRONMENT: production
       LOG_LEVEL: verbose
       APP_DOMAIN: coupon-clipper-stopandshop.carlyzach.com
     ports:
@@ -14,12 +15,14 @@ services:
         target: session_secret
       - source: coupon-clipper-stopandshop_database_url_v2
         target: database_url
-      - source: coupon-clipper-stopandshop_sendgrid_username_v1
-        target: sendgrid_username
-      - source: coupon-clipper-stopandshop_sendgrid_password_v1
-        target: sendgrid_password
-      - source: coupon-clipper-stopandshop_sendgrid_api_key_v1
-        target: sendgrid_api_key
+      - source: g_email_username_v1
+        target: email_username
+      - source: g_email_password_v1
+        target: email_password
+      - source: g_email_server_addr_v1
+        target: email_server_addr
+      - source: g_email_from_v1
+        target: email_from
       - source: coupon-clipper-stopandshop_crypt_keeper_key_v1
         target: crypt_keeper_key
   worker:
@@ -35,11 +38,13 @@ secrets:
     external: true
   coupon-clipper-stopandshop_database_url_v2:
     external: true
-  coupon-clipper-stopandshop_sendgrid_username_v1:
-    external: true
-  coupon-clipper-stopandshop_sendgrid_password_v1:
-    external: true
-  coupon-clipper-stopandshop_sendgrid_api_key_v1:
-    external: true
   coupon-clipper-stopandshop_crypt_keeper_key_v1:
+    external: true
+  g_email_username_v1:
+    external: true
+  g_email_password_v1:
+    external: true
+  g_email_server_addr_v1:
+    external: true
+  g_email_from_v1:
     external: true
