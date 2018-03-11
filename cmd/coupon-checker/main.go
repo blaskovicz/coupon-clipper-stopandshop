@@ -69,7 +69,19 @@ func main() {
 				panic(err)
 			}
 
-			// TODO use refresh token
+			autoClip := true
+			sendEmails := true
+			if ac, ok := prefs["auto_clip"]; ok && !ac.(bool) {
+				autoClip = false
+			}
+			if se, ok := prefs["new_coupon_emails"]; ok && !se.(bool) {
+				sendEmails = false
+			}
+
+			if !sendEmails {
+				continue
+			}
+
 			// check for coupons
 			client := stopandshop.New().SetToken(&models.Token{AccessToken: at.String, RefreshToken: &rt.String})
 			var newToken bool
@@ -123,9 +135,15 @@ func main() {
 				}
 
 				couponString := fmt.Sprintf("%#v", coupon)
+				if autoClip {
+					logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "auto-clip", "profile": profile.Login, "coupon": couponString}).Info()
+					if err := client.LoadCoupon(profile.CardNumber, coupon.ID); err != nil {
+						logrus.Fatal(err)
+					}
+				}
 
 				logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "found-coupon", "coupon": couponString}).Info()
-				if err = emailCoupon(cfg, *profile, &coupon); err != nil {
+				if err = emailCoupon(cfg, *profile, &coupon, autoClip); err != nil {
 					logrus.WithFields(logrus.Fields{"ref": "coupon-checker", "at": "email-coupon", "coupon": couponString, "to": profile.Login}).Error(err)
 					continue
 				}
@@ -158,13 +176,14 @@ func main() {
 }
 
 type couponEmailData struct {
-	Coupon *models.Coupon
-	Config *common.Config
+	Coupon   *models.Coupon
+	Config   *common.Config
+	AutoClip bool
 }
 
-func emailCoupon(cfg *common.Config, profile models.Profile, coupon *models.Coupon) error {
+func emailCoupon(cfg *common.Config, profile models.Profile, coupon *models.Coupon, autoClip bool) error {
 	var buff bytes.Buffer
-	if err := common.Templates(cfg).ExecuteTemplate(&buff, "clip-coupon.tmpl", couponEmailData{coupon, cfg}); err != nil {
+	if err := common.Templates(cfg).ExecuteTemplate(&buff, "clip-coupon.tmpl", couponEmailData{coupon, cfg, autoClip}); err != nil {
 		return fmt.Errorf("Failed to generate email: %s", err)
 	}
 

@@ -1,7 +1,7 @@
 <html>
 	<body>
 		<div style='border: 1px solid #000; width: 600px; padding: 5px'>
-      <div>
+      <div style='margin-bottom: 2px'>
         <h4 style='margin: 0'>{{.Coupon.Name}}</h4>
         <h5 style='margin: 0'>{{.Coupon.Title}}</h5>
       </div>
@@ -23,11 +23,20 @@
             </div>
             <div style='width: 25%; float: left'>
               <h5>
+                {{ if .AutoClip }}
+                <a
+                  style='font-style: italic'
+                  target='_blank'
+                  href='https://{{.Config.AppDomain}}'>
+                  Auto-Clipped!
+                </a>
+                {{ else }}
                 <a
                   target='_blank'
                   href='https://{{.Config.AppDomain}}/coupons/{{.Coupon.ID}}/clip'>
                   Clip
                 </a>
+                {{ end }}
               </h5>
             </div>
           </div>

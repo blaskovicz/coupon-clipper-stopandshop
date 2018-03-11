@@ -50,6 +50,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", web.RouteIndex(cfg, store, db)).Methods("GET")
+	r.HandleFunc("/profile", web.RouteUpdateProfile(cfg, store, db)).Methods("PATCH")
 	r.HandleFunc("/auth/login", web.RouteLoginForm(cfg, store)).Methods("GET")
 	r.HandleFunc("/auth/login", web.RouteLogin(cfg, store, db)).Methods("POST")
 	r.HandleFunc("/auth/logout", web.RouteLogout(cfg, store)).Methods("GET")

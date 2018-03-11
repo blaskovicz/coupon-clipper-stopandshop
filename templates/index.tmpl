@@ -1,16 +1,63 @@
 {{template "header" .}}
 {{ if .profile }}
   <div class="row">
-    <h3>
-      Welcome, {{.profile.FirstName}}
-      <small><a href="/auth/logout" title='Sign out.'><i class="fa fa-sign-out"></i></a></small>
-    </h3>
+    <div class="col-4">
+      <h3>
+        Welcome, {{.profile.FirstName}}
+        <small><a href="/auth/logout" title='Sign out.'><i class="fa fa-sign-out"></i></a></small>
+      </h3>
+    </div>
+    <div class="col-4">
+      <h3>Your Coupons</h3>
+    </div>
+    <div class="col-4">
+      <div class="form-check" id="new_coupon_emails">
+        <input id="new_coupon_emails_check" type="checkbox" class="form-check-input profile-toggle" name="new_coupon_emails" {{with $email_pref := index .prefs "new_coupon_emails"}}{{if $email_pref}}checked{{end}}{{end}}>
+        <label class="form-check-label" for="new_coupon_emails_check" title="When enabled, we will email new coupons that appear to be free to you.">
+          <i class="fa fa-envelope"></i> Email free coupon reminders
+        </label>
+        <div class="invalid-feedback"></div>
+      </div>
+      <div class="form-check" id="auto_clip">
+        <input id="auto_clip_check" type="checkbox" class="form-check-input profile-toggle" name="auto_clip" {{with $email_pref := index .prefs "auto_clip"}}{{if $email_pref}}checked{{end}}{{end}}>
+        <label class="form-check-label" for="auto_clip_check" title="When enabled, we will automatically clip free coupons (load to card) for you.">
+          <i class="fa fa-cut"></i> Auto-clip coupons
+        </label>
+        <div class="invalid-feedback"></div>
+      </div>
+      <script>
+      $(function() {
+        $(document).on("click", "input[type=checkbox].profile-toggle", function(e) {
+          var opt = $(e.currentTarget);
+          var name = opt.attr("name");
+          var val = opt.prop("checked"); // will be post-user-clicked value
+          var err = $("#" + name + " .invalid-feedback");
+          opt.removeClass("is-invalid");
+          opt.prop("disabled", true);
+          err.hide();
+          var data = {};
+          data[name] = val;
+          $.ajax({
+            url: "/profile",
+            method: "PATCH",
+            xhrFields: { withCredentials: true },
+            dataType: "json",
+            headers: { "Content-Type": "application/json" },
+            data: JSON.stringify(data),
+          }).done(function(data, textStatus) {
+          }).fail(function(jqXHR, textStatus) {
+            opt.addClass("is-invalid");
+            err.text(textStatus).show();
+          }).always(function() {
+            opt.prop("disabled", false);
+          });
+        });
+      });
+      </script>
+    </div>
   </div>
 {{ end }}
 {{if .coupons }}
-  <div class="row">
-    <h3>Your Coupons</h3>
-  </div>
 {{ range .coupons }}
   <div class="row border {{ if .Loaded }}border-success{{ end }} mb-2 p-2">
     <div class="col">
@@ -55,5 +102,7 @@
     </div>
   </div>
 {{ end }}
+{{ else }}
+  <div class="row border"><div class="col"><h5>No coupons...</h5></div></div>
 {{ end }}
 {{template "footer" .}}

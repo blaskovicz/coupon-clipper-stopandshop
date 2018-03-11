@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -49,7 +50,7 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config, db *sql.DB) http.Han
 		profileID, _ := session.Values["profileID"].(string)
 		var at cryptkeeper.CryptString
 		var rt cryptkeeper.CryptString
-		if err := db.QueryRow("SELECT access_token,refresh_token FROM users WHERE profile_id = $1", profileID).Scan(&at,&rt); err != nil {
+		if err := db.QueryRow("SELECT access_token,refresh_token FROM users WHERE profile_id = $1", profileID).Scan(&at, &rt); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.clip-coupon", "at": "db.query-row"}).Warn(err)
 			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
 			session.Save(r, w)
@@ -106,6 +107,52 @@ func RouteClipCoupon(ss sessions.Store, cfg *common.Config, db *sql.DB) http.Han
 	}
 }
 
+type profilePayload struct {
+	NewCouponEmails *bool `json:"new_coupon_emails"`
+	AutoClip        *bool `json:"auto_clip"`
+}
+
+func RouteUpdateProfile(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		session, _ := ss.Get(r, "session")
+		w.Header().Set("Content-Type", "application/json")
+		if session == nil || session.Values["loggedIn"] == nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.update-profile", "at": "not-authorized"}).Info()
+			w.WriteHeader(http.StatusUnauthorized)
+			resp, _ := json.Marshal(map[string]string{"id": "not_authorized", "message": "not authorized to access this resource."})
+			w.Write(resp)
+			return
+		}
+		logrus.WithFields(logrus.Fields{"ref": "routes.update-profile", "at": "start"}).Info()
+		var pp profilePayload
+		if err := json.NewDecoder(r.Body).Decode(&pp); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			resp, _ := json.Marshal(map[string]string{"id": "bad_request", "message": "invalid payload sent to resource."})
+			w.Write(resp)
+			return
+		}
+		if pp.NewCouponEmails != nil {
+			if _, err := db.Exec("UPDATE users SET preferences=jsonb_set(preferences, '{new_coupon_emails}', $1) WHERE profile_id=$2", *pp.NewCouponEmails, session.Values["profileID"].(string)); err != nil {
+				logrus.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				resp, _ := json.Marshal(map[string]string{"id": "internal_error", "message": "An error occurred setting new_coupon_emails."})
+				w.Write(resp)
+				return
+			}
+		}
+		if pp.AutoClip != nil {
+			if _, err := db.Exec("UPDATE users SET preferences=jsonb_set(preferences, '{auto_clip}', $1) WHERE profile_id=$2", *pp.AutoClip, session.Values["profileID"].(string)); err != nil {
+				logrus.Error(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				resp, _ := json.Marshal(map[string]string{"id": "internal_error", "message": "An error occurred setting auto_clip."})
+				w.Write(resp)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session := getSessionOrRedirect(ss, r, w)
@@ -116,6 +163,7 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 		logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "start"}).Info()
 
 		if session.Values["profileID"] == nil {
+			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "redirecting.session"}).Info()
 			session.Values["flashError"] = fmt.Sprintf("Invalid auth token. Try re-logging in.")
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
@@ -125,12 +173,24 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 		profileID, _ := session.Values["profileID"].(string)
 		var at cryptkeeper.CryptString
 		var rt cryptkeeper.CryptString
-		if err := db.QueryRow("SELECT access_token,refresh_token FROM users WHERE profile_id = $1", profileID).Scan(&at,&rt); err != nil {
+		pB := []byte{}
+		if err := db.QueryRow("SELECT access_token, refresh_token, preferences FROM users WHERE profile_id = $1", profileID).Scan(&at, &rt, &pB); err != nil {
 			logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "db.query-row"}).Warn(err)
 			session.Values["flashError"] = fmt.Sprintf("Failed to read user row. Try re-logging in.")
 			session.Save(r, w)
 			http.Redirect(w, r, "/auth/logout", http.StatusFound)
 			return
+		}
+
+		prefs := map[string]interface{}{}
+		if err := json.Unmarshal(pB, &prefs); err != nil {
+			logrus.Error(err)
+		}
+		if _, ok := prefs["new_coupon_emails"]; !ok {
+			prefs["new_coupon_emails"] = true
+		}
+		if _, ok := prefs["auto_clip"]; !ok {
+			prefs["auto_clip"] = true
 		}
 
 		var token models.Token
@@ -150,17 +210,19 @@ func RouteIndex(cfg *common.Config, ss sessions.Store, db *sql.DB) http.HandlerF
 				}
 			}
 			if err != nil {
+				logrus.WithFields(logrus.Fields{"ref": "routes.index", "at": "redirecting.session"}).Info()
 				session.Values["flashError"] = fmt.Sprintf("Failed to read profile. Try re-logging in (%s)", err)
 				session.Save(r, w)
 				http.Redirect(w, r, "/auth/logout", http.StatusFound)
+				return
 			}
-			return
 		}
 		templateData := map[string]interface{}{
 			"flashError":   session.Values["flashError"],
 			"flashSuccess": session.Values["flashSuccess"],
+			"prefs":        prefs,
+			"profile":      profile,
 		}
-		templateData["profile"] = profile
 
 		coupons, err := client.ReadCoupons(profile.CardNumber)
 		if err != nil {
